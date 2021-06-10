@@ -18,6 +18,7 @@ from os import mkdir
 from os import listdir
 from os import getcwd
 from os import chdir
+from os import stat
 from datetime import datetime
 import subprocess
 import traceback
@@ -142,7 +143,7 @@ def MSA_parser_MAFFT(motif, folder, ep):
         f.write('#$ -e ' + log_folder + '/error_MSA-' + motif + '.log   # error file\n')
         f.write('#S -o output_MSA-' + motif + '    # output file\n\n')
         f.write('module load MAFFT/7.305-foss-2018b-with-extensions\n')
-        f.write('mafft --auto --threads 5 --ep ' + str(ep) + ' ' +
+        f.write('mafft --auto --thread 5 --ep ' + str(ep) + ' ' +
                 motif + '_AA.txt > MSA_' + motif + '.o123 \n')
         f.close()
 
@@ -201,9 +202,14 @@ def SCA_parser(motif, home_folder, argv):
         f.write('module load Python/3.7.0-foss-2018b\n')
 
         files = listdir(getcwd())
-        MSA_file = ''
+        MSA_files = []
         for file in files:
             if all([file.find('MSA_') == 0, file.find('.o') != -1]):
+                MSA_files.append(file)
+        filesize = 0
+        for file in MSA_files:
+            if stat(file).st_size > filesize:
+                filesize = stat(file).st_size
                 MSA_file = file
 
         f.write('python ' + home_folder + '/_sca/scaProcessMSA.py -a ' + join(getcwd(), MSA_file) + ' -d ' + join(getcwd()) + ' -p ' + ' '.join([str(i) for i in pars]) + ' \n')
@@ -307,10 +313,11 @@ def main(max_freq_gaps, extract):
             elif algorithm.lower() == 'muscle':
                 MSA_file = MSA_parser_MUSCLE(motif, motif_folder)
             elif 'mafft' in algorithm.lower():
-                ep = int(algorithm.split('_')[1])
+                ep = float(algorithm.split('_')[1])
                 MSA_file = MSA_parser_MAFFT(motif, motif_folder, ep)
 
-        except Exception:
+        except Exception as e:
+            print(e)
             print('ERROR: MSA parser error')
             traceback.print_exc()
         # Move to the motif folder and perform the MSA
