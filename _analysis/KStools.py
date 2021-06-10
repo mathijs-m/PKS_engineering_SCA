@@ -202,7 +202,7 @@ def saveAlignment(allignedSectors, consSeq, folderName, sca_to_msa,
     colorTable = '{\colortbl;\\red0\green0\\blue0;\\red10\green40\\blue215;'+\
         '\\red120\green200\\blue205;\\red30\green225\\blue30;' + \
                 '\\red255\green50\\blue205;\\red205\green0\\blue60;' + \
-                '\\red200\green255\\blue0;\\red255\green255\\blue85;' + \
+                '\\red255\green200\\blue0;\\red30\green125\\blue30;' + \
                 '\\red0\green30\\blue128;\\red0\green128\\blue128;' + \
                 '\\red0\green128\\blue0;\\red128\green0\\blue128;' + \
                 '\\red128\green0\\blue0;\\red128\green128\\blue0;' + \
@@ -211,31 +211,33 @@ def saveAlignment(allignedSectors, consSeq, folderName, sca_to_msa,
     coloredSeq = dict()
     for i, let in enumerate(consSeq['aa']):
         coloredSeq[i+1] = {'let': let, 'col': '\cf1 '}
-    try:
-        for rank in allignedSectors:
-            seqFile.write('>Sector ' + str(allignedSectors[rank].rank) + '\n' +
-                          allignedSectors[rank].aa + '\n')
-            consData.append(allignedSectors[rank].cons)
-            couplingData.append(allignedSectors[rank].coupling)
-            # Also write the colors for the sequence
-            for pos in allignedSectors[rank].pos:
-                if pos != '-':
-                    coloredSeq[int(pos)]['col'] = '\cf' + str(rank+1) + ' '
-    
-        # Write the rtf file first
-        print('writing at ' + colSeq_fname)
-        fID = open(colSeq_fname, 'w+') 
-        fID.write('{\\rtf1 \n' + colorTable + '\n')
-        for pos in coloredSeq.keys():
-            fID.write(coloredSeq[pos]['col'] + coloredSeq[pos]['let'])
-        fID.write('\line \line')
-        for rank in allignedSectors:
+
+    for rank in allignedSectors:
+        seqFile.write('>Sector ' + str(allignedSectors[rank].rank) + '\n' +
+                      allignedSectors[rank].aa + '\n')
+        consData.append(allignedSectors[rank].cons)
+        couplingData.append(allignedSectors[rank].coupling)
+        # Also write the colors for the sequence
+        for pos in allignedSectors[rank].pos:
+            if pos != '-':
+                coloredSeq[int(pos)]['col'] = '\cf' + str(rank+1) + ' '
+
+    # Write the rtf file first
+    print('writing at ' + colSeq_fname)
+    fID = open(colSeq_fname, 'w+') 
+    fID.write('{\\rtf1 \n' + colorTable + '\n')
+    for pos in coloredSeq.keys():
+        fID.write(coloredSeq[pos]['col'] + coloredSeq[pos]['let'])
+    fID.write('\line \line')
+    for rank in allignedSectors:
+        if rank%7 == 0:
             fID.write('\cf' + str(rank+1) + ' Sector ' + str(rank) + '\line')
-    
-        fID.write('}')
-        fID.close()
-    except Exception:
-        pass
+        else:
+            fID.write('\cf' + str(rank+1) + ' Sector ' + str(rank) + '\t')
+
+    fID.write('}')
+    fID.close()
+
     colnames = dict()
     colnames[0] = 'Position'
     colnames[2] = 'Consensus AA'

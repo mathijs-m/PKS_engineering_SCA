@@ -17,8 +17,10 @@ import traceback
 import sys
 sys.path.append('../_analysis')
 sys.path.append('../_sca')
-import KStools
-from pysca import sca
+sys.path.append('./_analysis')
+sys.path.append('./_sca')
+from _analysis import KStools
+from _sca.pysca import sca
 
 
 def newFolder(folderName):
@@ -682,19 +684,22 @@ def map_sectors_to_lost_sequence(sca_to_msa, allignedSectors,
 
 
 def SpyderInput():
-    motifs = ['KS_trans-ATdocking','ACP_KS_trans-ATdocking', 'ACP_KS', 'KR_ACP_KS','KS',
-               'KS_trans-ATdocking_KR',
-              'AT','Condensation']
-    #motifs = ['KS_trans-ATdocking', 'KS_trans-ATdocking_KR', 'AT','Condensation']
-    cis_motifs = ['ACP_KS_AT', 'KS', 'KS_AT', 'KS_AT_KR']
+    folder = input_folder = 'Y:\OMICS\mmabesoone\Scripts\S-005_SCA_Pipeline\Results\Results_2021-06-10_Annotations_withUnorderedAnalysis/'
+    motifs = [f for f in os.listdir(folder) if
+         any([i in f for i in ['_', 'ACP', 'PCP', 'KR', 'ER', 'Thioesterase',
+                               'Condensation', 'AT']])]
     for motif in motifs:
         try:
             print(motif)
-            input_folder = 'Z:/Scripts/S-005_SCA_Pipeline/Results/Results_2021-04-15_FullSequence/' + motif
+            input_folder = folder + motif
             motif_folder = input_folder
             input_folder += '/0_InputData'
-            # motif = 'KS_AT_KR'
+    
             input_file = motif + '_sectors.db'
+            global color
+            color = [0.1, 0.6, 0.3]
+    
+            '''
             import sys
             import os
             from importlib import reload
@@ -708,19 +713,66 @@ def SpyderInput():
             #reload(sys.modules['KSanalysis'])
             import pickle
             #motif_folder = os.getcwd()
-
+            '''
             db = pickle.load(open('/'.join([input_folder, input_file]), 'rb'))
             Dseq = db['sequence']  # the results of scaProcessMSA
             Dsca = db['sca']       # the results of scaCore
             Dsect = db['sector']   # the results of scaSectorID
-
+        
             consSeq = KStools.constructConsensus(Dseq['alg'])
             sca_to_msa, msa_to_sca = map_to_original_msa(motif, motif_folder, Dseq)
-
+        
+            print("After processing, the alignment size is %i sequences and %i positions" %
+                  (Dseq['Nseq'], Dseq['Npos']))
+            print("With sequence weights, there are %i effective sequences" %
+                  (Dseq['effseqs']))
+        
+            # Create sequence similarity matrix
+            statistics_folder = newFolder('/'.join([motif_folder,'1_GeneralStatistics']))
+            listS = [Dsca['simMat'][i, j] for i in range(Dsca['simMat'].shape[0])
+                     for j in range(i+1, Dsca['simMat'].shape[1])]
+            plot_seqsimilarity_matrix(listS, Dsca, Dseq, statistics_folder)
+        
+            # Analyze BGC statistics and phylogenies
+            analyze_BGC_statistics(Dseq, statistics_folder)
+        
+            # First order statistics
+            first_order_folder = newFolder('/'.join([motif_folder,'2_FirstOrderStatistics']))
+            plot_positional_entropy(Dsca, Dseq, first_order_folder)
+            plot_SCA_matrix(Dsca, first_order_folder, consSeq)
+            plot_significant_eigenmodes(Dsca, Dseq, Dsect, first_order_folder)
+            calculate_eigenmode_residues(Dsect['Vpica'], Dsect['kpos'], Dsect,
+                                         first_order_folder)
+        
+            # Second order statistics
+            sec_order_folder = newFolder('/'.join([motif_folder,'3_ReorderedSCAMatrix']))
             sector_organizedSCA = Dsca['Csca'][np.ix_(Dsect['sortedpos'],
                                                       Dsect['sortedpos'])]
             ic_sizes = Dsect['icsize']
-            sec_order_folder = newFolder('/'.join([motif_folder,'3_ReorderedSCAMatrix']))
+            plot_sector_organized_SCA_matrix(sector_organizedSCA, ic_sizes,
+                                             sec_order_folder)
+        
+            # FIRST: SAVE THE DATA BEFORE REORDERING THE SECTORS
+            # Align the sequences to the consensus sequence
+            reordered = False
+        
+            allignedSectors = dict()
+            for rank, sector in enumerate(Dsect['ics']):
+                allignedSectors[rank+1] = KStools.allignedSector(rank+1, sector,
+                                                                 consSeq, Dsca['Csca'],
+                                                                 sca_to_msa)
+        
+            KStools.saveAlignment(allignedSectors, consSeq, sec_order_folder,
+                                  sca_to_msa, msa_to_sca, reordered)
+        
+            # Finally, plot the positional coupling and conservation in 2 and 3D
+            plot_positional_coupling_and_conservation(allignedSectors, Dseq,
+                                                      consSeq, sec_order_folder,
+                                                      reordered)
+            plot_coupling_in_original_sequence(allignedSectors, Dsca, sec_order_folder,
+                                               consSeq, reordered)
+        
+            # Reorder the ICs to cluster correlated ICs
             threshold = 1
             biggest_smaller_than_half = False
             while not biggest_smaller_than_half:
@@ -728,23 +780,96 @@ def SpyderInput():
                     KStools.find_correlated_sectors(sector_organizedSCA, ic_sizes,
                                                     threshold)
                 threshold = threshold*1.01
-
+            fileID = open(os.path.join(sec_order_folder, 'ReorderingThreshold.txt'),
+                          'w+')
+            fileID.write('The reordering threshold was: ' + str(threshold))
+            fileID.close()
+            reordered = True
+        
             reordered_sectors = obtain_reordered_sector_data(sec_groups, Dsect['ics'])
-
+        
+            plot_reorganized_SCA_matrix(reordered_sectors, Dsca, ic_sizes,
+                                        sec_order_folder)
+        
+            # Align the sequences to the consensus sequence
             allignedSectors = dict()
             for rank, sector in enumerate(reordered_sectors):
-                allignedSectors[rank+1] = KStools.allignedSector(rank+1, sector, consSeq, Dsca['Csca'], sca_to_msa)
-
+                allignedSectors[rank+1] = KStools.allignedSector(rank+1, sector,
+                                                                 consSeq, Dsca['Csca'],
+                                                                 sca_to_msa)
+        
             KStools.saveAlignment(allignedSectors, consSeq, sec_order_folder,
-                              sca_to_msa, msa_to_sca)
-
+                                  sca_to_msa, msa_to_sca, reordered)
+        
+            # Finally, plot the positional coupling and conservation in 2 and 3D
             plot_positional_coupling_and_conservation(allignedSectors, Dseq, consSeq,
-                                                      sec_order_folder)
+                                                      sec_order_folder, reordered)
             plot_coupling_in_original_sequence(allignedSectors, Dsca, sec_order_folder,
-                                               consSeq)
+                                               consSeq, reordered)
+        
+            # Make the pymol scripts
+            models = []
+            for i, header in enumerate(Dseq['hd']):
+                if 'oocydin ' in header.lower() or 'bacillaene' in header.lower():
+                    models.append(i)
+            if 'cis' in motif_folder:
+                for i, header in enumerate(Dseq['hd']):
+                    if 'erythr' in header.lower():
+                        print(header)
+                        models.append(i)
+        
+            pymol_folder = newFolder('/'.join([motif_folder, '4_PyMolFiles']))
+        
+            for model in models:
+                # Find index in parsed alignment
+                try:
+                    [full_seq,  orig_to_filt, filt_to_orig] = map_to_original_sequence(
+                        motif, motif_folder, Dseq, model)
+                except IndexError as e:
+                    print('ERROR: IndexError during processing of ' + Dseq['hd'][model])
+                    print(e)
+                    print('-------------')
+                    continue
+                gene = Dseq['hd'][model].split('|')[1].split(':')[1].strip()
+                if gene == '':
+                    gene = motif
+                gene = Dseq['hd'][model].split('|')[0].strip() + '_'  + \
+                    gene
+                start = Dseq['hd'][model].split('|')[2].split(':')[1].strip()
+                start = start.split(',')[0][1:]
+        
+                print('INFO: Making Pymol files of:')
+                print('           ' + Dseq['hd'][model])
+                pdb = gene + '_' + start
+                try:
+                    fID = open(pdb + '_seqPos.txt', 'w+')
+                    fID.write('Pos in seq\tAA\tPosInFilteredSeq\tAA\n')
+                    for i, let in enumerate(full_seq):
+                        x = str(i) + '\t' + let
+                        if orig_to_filt[i] != None:
+                            x += '\t' + str(orig_to_filt[i]) + '\t'  + Dseq['alg'][model][orig_to_filt[i]]
+                        x += '\n'
+                        fID.write(x)
+                    fID.close()
+                    color_i = [15, 161, 213]
+                    color_f = [239, 157, 1]
+                    numSect = len(allignedSectors)
+                    fname = '/'.join([pymol_folder, pdb + '.txt'])
+                    sectors = dict()
+                    offset = 0
+                    for rank in allignedSectors:
+                        pos_in_sectors = [i for i in allignedSectors[rank].pos if i!= '-']
+                        sectors[rank] = [filt_to_orig[i] for i in pos_in_sectors 
+                                     if i in filt_to_orig.keys()]
+                        writePymol(pdb, sectors, fname, color, offset, 'A', True)
+                except KeyError as e:
+                    print('ERROR: KeyError during PyMol writing of ' + pdb)
+                    print(e)
+                    print('---------')
         except Exception as e:
             print('Exception for ' + motif)
             print(e)
+
 
 def main():
     motif = sys.argv[1]
@@ -810,8 +935,8 @@ def main():
                                                          consSeq, Dsca['Csca'],
                                                          sca_to_msa)
 
-    KStools.saveAlignment(allignedSectors, consSeq, Dseq['atsConsFiltering'],
-                          sec_order_folder, sca_to_msa, msa_to_sca, reordered)
+    KStools.saveAlignment(allignedSectors, consSeq, sec_order_folder,
+                          sca_to_msa, msa_to_sca, reordered)
 
     # Finally, plot the positional coupling and conservation in 2 and 3D
     plot_positional_coupling_and_conservation(allignedSectors, Dseq,
@@ -879,7 +1004,7 @@ def main():
             print('-------------')
             continue
         gene = Dseq['hd'][model].split('|')[1].split(':')[1].strip()
-        if gene is '':
+        if gene == '':
             gene = motif
         gene = Dseq['hd'][model].split('|')[0].strip() + '_'  + \
             gene
