@@ -98,7 +98,7 @@ def new_file(fileName):
     return fileName, open_file
 
 
-def MSA_parser(motif, folder):
+def MSA_parser_CLUSTAL(motif, folder):
     # This function creates the bash script for the MSA
     motif = ''.join(x for x in motif if x.isalnum() or x in ['_', '-', ','])
     jobname = 'MSA_' + motif
@@ -118,6 +118,57 @@ def MSA_parser(motif, folder):
         f.write('#S -o output_MSA-' + motif + '    # output file\n\n')
         f.write('module load Clustal-Omega/1.2.4-foss-2018b\n')
         f.write('clustalo -i ' + motif + '_AA.txt --threads=5 --seqtype=Protein\n')
+        f.close()
+
+    return join(getcwd(), folder, shell_folder, fname)
+
+
+def MSA_parser_MAFFT(motif, folder, ep):
+    # This function creates the bash script for the MSA
+    motif = ''.join(x for x in motif if x.isalnum() or x in ['_', '-', ','])
+    jobname = 'MSA_' + motif
+    fname = 'shell_MSA_' + motif + '.sh'
+    log_folder = new_folder(join(getcwd(), folder, 'logfolder'))
+    shell_folder = new_folder(join(getcwd(),folder,'shellfolder'))
+    with open(join(getcwd(), shell_folder, fname), 'w+') as f:
+        f.write('#!/bin/sh\n')
+        f.write('#$ -cwd           # run in motif directory\n')
+        f.write('#$ -S /bin/bash   # interpreting shell for the job\n')
+        f.write('#$ -N ' + jobname + '       # name of the job\n')
+        f.write('#$ -V             # .bashrc is read in all nodes\n')
+        f.write('#$ -pe smp 5      # number of threads to be reserved\n')
+        #  If you get errors, try dynamically adapting memory??
+        f.write('#$ -l h_vmem=32G  # memory required per thread\n')
+        f.write('#$ -e ' + log_folder + '/error_MSA-' + motif + '.log   # error file\n')
+        f.write('#S -o output_MSA-' + motif + '    # output file\n\n')
+        f.write('module load MAFFT/7.305-foss-2018b-with-extensions\n')
+        f.write('mafft --auto --threads 5 --ep ' + str(ep) + ' ' +
+                motif + '_AA.txt > MSA_' + motif + '.o123 \n')
+        f.close()
+
+    return join(getcwd(), folder, shell_folder, fname)
+
+
+def MSA_parser_MUSCLE(motif, folder):
+    # This function creates the bash script for the MSA
+    motif = ''.join(x for x in motif if x.isalnum() or x in ['_', '-', ','])
+    jobname = 'MSA_' + motif
+    fname = 'shell_MSA_' + motif + '.sh'
+    log_folder = new_folder(join(getcwd(), folder, 'logfolder'))
+    shell_folder = new_folder(join(getcwd(),folder,'shellfolder'))
+    with open(join(getcwd(), shell_folder, fname), 'w+') as f:
+        f.write('#!/bin/sh\n')
+        f.write('#$ -cwd           # run in motif directory\n')
+        f.write('#$ -S /bin/bash   # interpreting shell for the job\n')
+        f.write('#$ -N ' + jobname + '       # name of the job\n')
+        f.write('#$ -V             # .bashrc is read in all nodes\n')
+        f.write('#$ -pe smp 5      # number of threads to be reserved\n')
+        #  If you get errors, try dynamically adapting memory??
+        f.write('#$ -l h_vmem=32G  # memory required per thread\n')
+        f.write('#$ -e ' + log_folder + '/error_MSA-' + motif + '.log   # error file\n')
+        f.write('#S -o output_MSA-' + motif + '    # output file\n\n')
+        f.write('module load MUSCLE/3.8.31-foss-2018b\n')
+        f.write('muscle ' + motif + '_AA.txt > MSA_' + motif + '.o123 \n')
         f.close()
 
     return join(getcwd(), folder, shell_folder, fname)
@@ -215,10 +266,11 @@ def main(max_freq_gaps, extract):
 
     motif_file = argv[1]
     genbank_dir = argv[2]
-    leader = argv[3]
-    follower = argv[4]
-    intermediate = argv[5]
-    only_annotations = argv[6]
+    algorithm = argv[3]
+    leader = argv[4]
+    follower = argv[5]
+    intermediate = argv[6]
+    only_annotations = argv[7]
     parse_input = ['', motif_file, genbank_dir, leader, follower, intermediate,
                    only_annotations]
 
@@ -250,7 +302,14 @@ def main(max_freq_gaps, extract):
 
         print('INFO: Parsing MSA shell script')
         try:
-            MSA_file = MSA_parser(motif, motif_folder)
+            if algorithm.lower() == 'clustal':
+                MSA_file = MSA_parser_CLUSTAL(motif, motif_folder)
+            elif algorithm.lower() == 'muscle':
+                MSA_file = MSA_parser_MUSCLE(motif, motif_folder)
+            elif 'mafft' in algorithm.lower():
+                ep = int(algorithm.split('_')[1])
+                MSA_file = MSA_parser_MAFFT(motif, motif_folder, ep)
+
         except Exception:
             print('ERROR: MSA parser error')
             traceback.print_exc()
