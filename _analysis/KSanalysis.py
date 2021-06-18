@@ -19,8 +19,8 @@ sys.path.append('../_analysis')
 sys.path.append('../_sca')
 sys.path.append('./_analysis')
 sys.path.append('./_sca')
-from _analysis import KStools
-from _sca.pysca import sca
+import KStools
+from pysca import sca
 
 
 def newFolder(folderName):
@@ -683,8 +683,8 @@ def map_sectors_to_lost_sequence(sca_to_msa, allignedSectors,
     return sectorpos_in_orig, sectorseqs
 
 
-def SpyderInput():
-    folder = input_folder = 'Y:\OMICS\mmabesoone\Scripts\S-005_SCA_Pipeline\Results\Results_2021-06-10_Annotations_withUnorderedAnalysis/'
+def SpyderInput(folder):
+    
     motifs = [f for f in os.listdir(folder) if
          any([i in f for i in ['_', 'ACP', 'PCP', 'KR', 'ER', 'Thioesterase',
                                'Condensation', 'AT']])]

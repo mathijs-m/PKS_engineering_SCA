@@ -169,7 +169,7 @@ def MSA_parser_MUSCLE(motif, folder):
         f.write('#$ -e ' + log_folder + '/error_MSA-' + motif + '.log   # error file\n')
         f.write('#S -o output_MSA-' + motif + '    # output file\n\n')
         f.write('module load MUSCLE/3.8.31-foss-2018b\n')
-        f.write('muscle ' + motif + '_AA.txt > MSA_' + motif + '.o123 \n')
+        f.write('muscle -in ' + motif + '_AA.txt -out MSA_' + motif + '.o123 \n')
         f.close()
 
     return join(getcwd(), folder, shell_folder, fname)
