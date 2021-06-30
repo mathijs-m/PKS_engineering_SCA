@@ -683,22 +683,33 @@ def map_sectors_to_lost_sequence(sca_to_msa, allignedSectors,
     return sectorpos_in_orig, sectorseqs
 
 
-def SpyderInput(folder):
-    
+def SpyderInput(folder, parse_all=True):
+    # Function to perform the SCA analysis in case something went a bit wrong
+    # on Morgan.
+
+    if folder[-1] != '/' or folder[-1] != '\\':
+        folder += '/'
+
     motifs = [f for f in os.listdir(folder) if
          any([i in f for i in ['_', 'ACP', 'PCP', 'KR', 'ER', 'Thioesterase',
-                               'Condensation', 'AT']])]
+                               'Condensation', 'AT', 'KS', 'DH']])]
+    motifs = [motif for motif in motifs if not 
+              any(term in motif for term in ['Bacillaene','files','.py'])]
+    if not parse_all:
+        motifs = [motif for motif in motifs if not os.path.isdir(folder + '/' + motif + '/4_PyMolFiles/')]
+        print(motifs)
+
     for motif in motifs:
         try:
             print(motif)
             input_folder = folder + motif
             motif_folder = input_folder
             input_folder += '/0_InputData'
-    
+
             input_file = motif + '_sectors.db'
             global color
             color = [0.1, 0.6, 0.3]
-    
+
             '''
             import sys
             import os
@@ -714,28 +725,37 @@ def SpyderInput(folder):
             import pickle
             #motif_folder = os.getcwd()
             '''
-            db = pickle.load(open('/'.join([input_folder, input_file]), 'rb'))
+            try:
+                db = pickle.load(open('/'.join([input_folder, input_file]), 'rb'))
+            except FileNotFoundError as e:
+                try:
+                    organize_input(input_file, motif_folder)
+                    db = pickle.load(open('/'.join([input_folder, input_file]), 'rb'))
+                except Exception:
+                    print('Input organization unsuccessful')
+                    raise FileNotFoundError
+
             Dseq = db['sequence']  # the results of scaProcessMSA
             Dsca = db['sca']       # the results of scaCore
             Dsect = db['sector']   # the results of scaSectorID
-        
+
             consSeq = KStools.constructConsensus(Dseq['alg'])
             sca_to_msa, msa_to_sca = map_to_original_msa(motif, motif_folder, Dseq)
-        
+
             print("After processing, the alignment size is %i sequences and %i positions" %
                   (Dseq['Nseq'], Dseq['Npos']))
             print("With sequence weights, there are %i effective sequences" %
                   (Dseq['effseqs']))
-        
+
             # Create sequence similarity matrix
             statistics_folder = newFolder('/'.join([motif_folder,'1_GeneralStatistics']))
             listS = [Dsca['simMat'][i, j] for i in range(Dsca['simMat'].shape[0])
                      for j in range(i+1, Dsca['simMat'].shape[1])]
             plot_seqsimilarity_matrix(listS, Dsca, Dseq, statistics_folder)
-        
+
             # Analyze BGC statistics and phylogenies
             analyze_BGC_statistics(Dseq, statistics_folder)
-        
+
             # First order statistics
             first_order_folder = newFolder('/'.join([motif_folder,'2_FirstOrderStatistics']))
             plot_positional_entropy(Dsca, Dseq, first_order_folder)

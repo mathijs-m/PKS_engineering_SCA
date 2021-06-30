@@ -266,9 +266,16 @@ def main(max_freq_gaps, extract):
             mkdir(log_folder)
         except FileExistsError:
             pass
+
+    stdout_old = sys.stdout
+    global logfile
+    if not sys.platform == 'win32':
+
         [logfilename, logfile] = new_file(log_folder + '/logfile_' +
                                           cur_time+'.txt')
         sys.stdout = logfile
+    else:
+        logfile = sys.stdout
 
     motif_file = argv[1]
     genbank_dir = argv[2]
@@ -300,9 +307,8 @@ def main(max_freq_gaps, extract):
         # Perform the extractions and save data
         print('\nINFO: Created folder: ' + motif_folder, file=logfile)
 
-        numSeqs = gbe.main_extractor(genbank_dir, query_motif, basepairs, BGCs,
-                                     organisms, specificities, db_props,
-                                     motif, motif_folder, only_annotations)[0]
+        numSeqs = gbe.main_extractor(genbank_dir, query_motif, fname=motif.replace(' ',''),
+                                     dest_folder=getcwd()+'/'+motif)[0]
         print('Extraction of ' + str(motif) + ' successful.', file=logfile)
         print('Exctracted ' + str(numSeqs) + ' sequences.', file=logfile)
 
