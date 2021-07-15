@@ -397,8 +397,6 @@ def find_correlated_sectors(sector_organizedSCA, ic_sizes, th, mode='median'):
         for group in groups[0:i]:
             if any([ic in group for ic in cur_group]):
                 group.extend(list(set(cur_group)-set(group)))
-                print(groups)
-                print(cur_group)
                 groups.remove(cur_group)
                 i -= 1
                 break
