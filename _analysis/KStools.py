@@ -278,58 +278,109 @@ def saveAlignment(allignedSectors, consSeq, folderName, sca_to_msa,
         seqFile.write(string)
     seqFile.close()
 
-def find_correlated_sectors(sectMat, icsize, th):
+def find_correlated_sectors(sector_organizedSCA, ic_sizes, th, mode='median'):
     # This function finds the correlations between sectors in the SCA matrix
     # The selection is based on the average value in a non-diagonal domain 
     # being larger than the median of all non-diagonal domains
     off_diag = []
     ind_i = 0
 
-    for i in range(len(icsize)):
+    # Make a list of the non-diagonal elements, obtained by flattening the 
+    # non-diagonal blocks of the sector-organized SCA matrix
+    for i in range(len(ic_sizes)):
         ind_j = 0
         for j in range(i):
-            i_range = slice(ind_i, ind_i+icsize[i])
-            j_range = slice(ind_j, ind_j+icsize[j])
-            off_diag.extend(sectMat[i_range, j_range].flatten())
-            ind_j += icsize[j]
-        ind_i += icsize[i]
+            i_range = slice(ind_i, ind_i+ic_sizes[i])
+            j_range = slice(ind_j, ind_j+ic_sizes[j])
+            off_diag.extend(sector_organizedSCA[i_range, j_range].flatten())
+            ind_j += ic_sizes[j]
+        ind_i += ic_sizes[i]
 
+    # Obtain the median value of all elements in non-diagonal blocks
     med = np.median(off_diag)
-    coupled_mat = np.zeros([len(icsize), len(icsize)])
+    avg = np.average(off_diag)
+    stdev = np.std(off_diag)
+    coupled_mat = np.zeros([len(ic_sizes), len(ic_sizes)])
     ind_i = 0
 
-    avgMat = np.zeros(np.shape(sectMat))
-    for i in range(len(icsize)):
-        ind_j = 0
-        for j in range(i+1):
-            i_range = slice(ind_i, ind_i+icsize[i])
-            j_range = slice(ind_j, ind_j+icsize[j])
-            avg_interSect_cor = np.mean(sectMat[i_range, j_range])
-            avgMat[i_range, j_range] = avg_interSect_cor > th*med
-            avgMat[j_range, i_range] = avg_interSect_cor > th*med
-            coupled_mat[i, j] = avg_interSect_cor > th*med
-            coupled_mat[j, i] = avg_interSect_cor > th*med
+    avgMat = np.zeros(np.shape(sector_organizedSCA))
 
-            ind_j += icsize[j]
+    # for every sector
+    if mode == 'median':
+        for i in range(len(ic_sizes)):
+            ind_j = 0
+            for j in range(i+1):
+                i_range = slice(ind_i, ind_i+ic_sizes[i])
+                j_range = slice(ind_j, ind_j+ic_sizes[j])
 
-        ind_i += icsize[i]
+                # Obtain the average coupling of the elements in the non-diagonal
+                # block between two ICs
+                avg_interSect_cor = np.mean(sector_organizedSCA[i_range, j_range])
+
+                # Determine if that average is higher than the threshold times the 
+                # median. Save the information in avgMat that represents all the 
+                # positions in the MSA, and in coupled_mat, an i x j matrix that 
+                # indicates whether IC i and j are correlated
+                avgMat[i_range, j_range] = avg_interSect_cor > th*med
+                avgMat[j_range, i_range] = avg_interSect_cor > th*med
+                coupled_mat[i, j] = avg_interSect_cor > th*med
+                coupled_mat[j, i] = avg_interSect_cor > th*med
+
+                ind_j += ic_sizes[j]
+
+            ind_i += ic_sizes[i]
+
+    elif mode == 'average':
+        print(str(stdev) + ' for an average value of ' + str(avg))
+        for i in range(len(ic_sizes)):
+            ind_j = 0
+            for j in range(i+1):
+                i_range = slice(ind_i, ind_i+ic_sizes[i])
+                j_range = slice(ind_j, ind_j+ic_sizes[j])
+
+                # Obtain the average coupling of the elements in the non-diagonal
+                # block between two ICs
+                avg_interSect_cor = np.mean(sector_organizedSCA[i_range, j_range])
+
+                # Determine if that average is higher than the threshold times the 
+                # median. Save the information in avgMat that represents all the 
+                # positions in the MSA, and in coupled_mat, an i x j matrix that 
+                # indicates whether IC i and j are correlated
+                avgMat[i_range, j_range] = avg_interSect_cor > avg + th*stdev
+                avgMat[j_range, i_range] = avg_interSect_cor > avg + th*stdev
+                coupled_mat[i, j] = avg_interSect_cor > avg + th*stdev
+                coupled_mat[j, i] = avg_interSect_cor > avg + th*stdev
+
+                ind_j += ic_sizes[j]
+
+            ind_i += ic_sizes[i]
 
     # Find the correlations between sectors and don't forget weakly internally
     # coupled sectors as individial sectors
     groups = []
-    for i in range(len(icsize)):
+    for i in range(len(ic_sizes)):
+        # Determine which ICs are coupled to IC i
         coupled = np.nonzero(coupled_mat[i])[0].tolist()
-        if any(x in group for x in coupled for group in groups):
-            for group in groups:
-                if any(x in group for x in coupled):
-                    group.extend(list(set(coupled)-set(group)))
-        else:
+
+        # Check if any of the ICs coupled to IC i already occures in a group of
+        # coupled ICs
+        found = False
+
+        # Check if any of the coupled sectors already occur in the groups
+        for group in groups:
+            if any(x in group for x in coupled):
+                group.extend(list(set(coupled)-set(group)))
+                found = True
+
+        # If there are no groups yet or the residues do not occur in a group
+        # append them as a new group to the list of groups
+        if not found and coupled:
             groups.append(coupled)
         if not coupled:
             groups.append([i])
-    groups = [sorted(x) for x in groups if x]
 
     def filterDuplicates(thelist):
+        # A function to remove duplicates from a list
         seen = []
         for x in thelist:
             if x in seen:
@@ -337,15 +388,34 @@ def find_correlated_sectors(sectMat, icsize, th):
             seen.append(x)
         return thelist
 
+    # Filter duplicate groups from the list
     groups = filterDuplicates(groups)
 
+    i = len(groups)-1
+    while i >= 0:
+        cur_group = groups[i]
+        for group in groups[0:i]:
+            if any([ic in group for ic in cur_group]):
+                group.extend(list(set(cur_group)-set(group)))
+                print(groups)
+                print(cur_group)
+                groups.remove(cur_group)
+                i -= 1
+        i -= 1
+
+    # Sort the ICs on original order within the groups
+    groups = [sorted(x) for x in groups if x]
+
+    # Get the size of every group of ICs and calculate the total size
     size = []
     for group in groups:
-        size.append(sum([icsize[el] for el in group]))
-    totsize = sum(icsize)
-    biggest_smaller_than_half = max(size) < 0.5*totsize
+        size.append(sum([ic_sizes[el] for el in group]))
+    totsize = sum(ic_sizes)
 
-    return [coupled_mat, groups, biggest_smaller_than_half]
+    # Check if the biggest group is larger than half of the total size
+    biggest_larger_than_half = max(size) > 0.5*totsize
+
+    return [coupled_mat, groups, biggest_larger_than_half]
 
 
 def obtain_positional_frequencies_for_residue(alg, refseqno, refpos):

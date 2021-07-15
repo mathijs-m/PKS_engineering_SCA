@@ -30,7 +30,8 @@ def parse_command_line_args(args):
     # This function checks if the command line argument is a file containing
     # the domain motifs and returns a list of the domain motifs
     if len(args) < 4:
-        print("I didn't receive enough arguments. Exiting.\n", file=logfile)
+        print(args)
+        print("I didn't receive enough arguments. Exiting.", file=logfile)
         return
 
     motif_file = args[1]
@@ -284,6 +285,7 @@ def main(max_freq_gaps, extract):
     follower = argv[5]
     intermediate = argv[6]
     only_annotations = argv[7]
+    any_binding = bool(argv[8])
     parse_input = ['', motif_file, genbank_dir, leader, follower, intermediate,
                    only_annotations]
 
@@ -307,8 +309,8 @@ def main(max_freq_gaps, extract):
         # Perform the extractions and save data
         print('\nINFO: Created folder: ' + motif_folder, file=logfile)
 
-        numSeqs = gbe.main_extractor(genbank_dir, query_motif, fname=motif.replace(' ',''),
-                                     dest_folder=getcwd()+'/'+motif)[0]
+        numSeqs = gbe.main_extractor(genbank_dir, any_binding, query_motif, fname=motif.replace(' ',''),
+                                     dest_folder=getcwd()+'/'+motif.replace(' ',''))[0]
         print('Extraction of ' + str(motif) + ' successful.', file=logfile)
         print('Exctracted ' + str(numSeqs) + ' sequences.', file=logfile)
 
@@ -344,8 +346,9 @@ def main(max_freq_gaps, extract):
         try:
             pars = [max_freq_gaps, max_freq_gaps, minSeqID, maxSeqID]
             SCA_file = SCA_parser(motif, home_folder, pars)
-        except Exception:
+        except Exception as e:
             print('ERROR: SCA parser error')
+            print(e)
             traceback.print_exc()
 
         if not sys.platform == 'win32':
