@@ -401,6 +401,7 @@ def find_correlated_sectors(sector_organizedSCA, ic_sizes, th, mode='median'):
                 print(cur_group)
                 groups.remove(cur_group)
                 i -= 1
+                break
         i -= 1
 
     # Sort the ICs on original order within the groups
