@@ -279,6 +279,7 @@ def main(max_freq_gaps, extract):
         logfile = sys.stdout
 
     algorithm = argv[1]
+    sys.stdout.write(f"Algorithm is {algorithm}\n")
     home_folder = getcwd()
     files = [join(getcwd(), file) for file in listdir(getcwd()) if '.fasta' in file]
     for file in files:

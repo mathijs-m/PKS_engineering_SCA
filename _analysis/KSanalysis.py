@@ -764,7 +764,10 @@ def SpyderInput(folder, parse_all=True):
             plot_seqsimilarity_matrix(listS, Dsca, Dseq, statistics_folder)
 
             # Analyze BGC statistics and phylogenies
-            analyze_BGC_statistics(Dseq, statistics_folder)
+            try:
+                analyze_BGC_statistics(Dseq, statistics_folder)
+            except Exception as e:
+                print(e)
 
             # First order statistics
             first_order_folder = newFolder('/'.join([motif_folder,'2_FirstOrderStatistics']))
@@ -947,7 +950,10 @@ def main():
     plot_seqsimilarity_matrix(listS, Dsca, Dseq, statistics_folder)
 
     # Analyze BGC statistics and phylogenies
-    analyze_BGC_statistics(Dseq, statistics_folder)
+    try:
+        analyze_BGC_statistics(Dseq, statistics_folder)
+    except Exception as e:
+        print(e)
 
     # First order statistics
     first_order_folder = newFolder('/'.join([motif_folder,'2_FirstOrderStatistics']))
