@@ -73,16 +73,15 @@ def extract_motif_from_gb(seqRecord, motif, leading, trailing, intermediate, any
                     # When the first domain in the motif is found in the PKS...
                     # Find the starting and ending positions of the motif, taking into account the flanking bases and
                     # strand direction
-                    start = max(gene.location.start, aSDomain.location.start - spacing[gene.strand])
-                    end = min(gene.location.end, aSDomain.location.end + spacing[gene.strand])
+                    start = max(gene.location.start, aSDomain.location.start - spacing[int(0.5-gene.strand/2)])
+                    end = min(gene.location.end, aSDomain.location.end + spacing[int(0.5-gene.strand/2)])
                     position_list.append([start, end])
                     #motif_subhits.append(get_sequence_with_surrounding(gene, aSDomain, seqRecord, leading, intermediate))
                     motif_iterator += 1 * gene.strand
-                elif motif_iterator == len(motif)*gene.strand:
-                    print('check')
+                elif motif_iterator == len(motif)*gene.strand - int(0.5+gene.strand/2):
                     # Add the gene.strand/2 to account for the fact that the negative indexing goes from -1 to -len(motif)
-                    start = max(gene.location.start, aSDomain.location.start - spacing[gene.strand])
-                    end = min(gene.location.end, aSDomain.location.end + spacing[gene.strand])
+                    start = max(gene.location.start, aSDomain.location.start - spacing[int(0.5-gene.strand/2)])
+                    end = min(gene.location.end, aSDomain.location.end + spacing[int(0.5-gene.strand/2)])
                     position_list.append([start, end])
                     # Combine any overlapping regions in the position_list
                     position_list = combine_overlapping_sequence_boundaries(position_list)
@@ -96,17 +95,17 @@ def extract_motif_from_gb(seqRecord, motif, leading, trailing, intermediate, any
                             DNA_sequence = DNA_sequence.reverse_complement()
                         # Translate the sequence to protein and add it to the list of domain hits
                         AA_sequence += DNA_sequence.translate()
-                    domain_hit_sequences.append((position_list[0][0], position_list[-1][1], AA_sequence))
+                    domain_hit_sequences.append((int(position_list[0][0]), int(position_list[-1][1]), AA_sequence))
                     position_list = list()
                     motif_iterator = int(gene.strand/2 - gene.strand**2/2)
                 else:
-                    start = max(gene.location.start, aSDomain.location.start - spacing[gene.strand])
-                    end = min(gene.location.end, aSDomain.location.end + spacing[gene.strand])
+                    start = max(gene.location.start, aSDomain.location.start - spacing[int(0.5-gene.strand/2)])
+                    end = min(gene.location.end, aSDomain.location.end + spacing[int(0.5-gene.strand/2)])
                     position_list.append([start, end])
                     motif_iterator += 1 * gene.strand
-                    print(motif_iterator)
             else:
                 motif_iterator = int(gene.strand/2 - gene.strand**2/2)
+                position_list = list()
 
     return domain_hit_sequences
 
@@ -135,27 +134,7 @@ def convert_domain_hits_to_sequences(domain_hits, file):
 
 def extract_domain_sequences(motif, genbank_folder, destination_folder, leading=100, trailing=100, intermediate=15, any_binding=False):
     '''
-    
-
-    Parameters
-    ----------
-    domain_motif : TYPE
-        DESCRIPTION.
-    genbank_folder : TYPE
-        DESCRIPTION.
-    leading : TYPE
-        DESCRIPTION.
-    trailing : TYPE
-        DESCRIPTION.
-    intermediate : TYPE
-        DESCRIPTION.
-    any_binding : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    None.
-
+    Extract the sequences of a motif from a genbank file
     '''
     leading, intermediate, trailing = convert_AA_range_to_DNA_range(leading, intermediate, trailing)
     
@@ -166,17 +145,14 @@ def extract_domain_sequences(motif, genbank_folder, destination_folder, leading=
     
     # Run the extraction
     files = [file for file in Path(genbank_folder).iterdir() if '.gb' in file.name]
-    DNA_fasta = open(Path(destination_folder).joinpath('_'.join(motif)+'_DNA.fasta'), 'wt')
     AA_fasta = open(Path(destination_folder).joinpath('_'.join(motif)+'_AA.fasta'), 'wt')
     hits = 0
     for file in files:
         seqRecord = SeqIO.read(file, 'genbank')
         domain_hits = extract_motif_from_gb(seqRecord, motif, leading, trailing, intermediate, any_binding)
         hits += len(domain_hits)
-        DNA_sequences, AA_sequences = convert_domain_hits_to_sequences(domain_hits, file)
-        DNA_fasta.write(DNA_sequences)
+        AA_sequences = convert_domain_hits_to_sequences(domain_hits, file)
         AA_fasta.write(AA_sequences)
-    DNA_fasta.close()
     AA_fasta.close()
     
     return [hits]
