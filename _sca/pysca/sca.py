@@ -1363,6 +1363,10 @@ def scaMat(alg, seqw=1, norm="frob", lbda=0, freq0=np.ones(20) / 21):
         tX[:, i] = al2d[:, N_aa * i : N_aa * (i + 1)].dot(Projati.T)
     if norm == "frob":
         Cspec = Cfrob
+
+    # tildeC is a matrix that has in range Naa*i:Naa*(i+1), Naa*j:Naa(j+1) 
+    # a 'submatrix' for every amino acid pair, containing the Cab value for i, j pairs, with i the column number and j the row number.
+
     return Cspec, tX, Proj
 
 

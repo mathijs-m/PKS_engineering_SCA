@@ -4,24 +4,27 @@ Script to analyze the SCA of the KS alignment as done by Allison
 
 Mathijs Mabesoone, 01.02.2021
 """
-
+import argparse
 import os
 import shutil
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+import matplotlib
 import numpy as np
 import scipy.cluster.hierarchy as sch
 from scipy.stats import scoreatpercentile
 import pickle
 import traceback
 import sys
-sys.path.append('../_analysis')
-sys.path.append('../_sca')
-sys.path.append('./_analysis')
+from pathlib import Path
+sys.path.append('/nfs/home/mmabesoone/SCA/_analysis/')
+sys.path.append('/nfs/home/mmabesoone/SCA/_sca/')
+sys.path.append('/nfs/home/mmabesoone/SCA/_sca/pysca')
+sys.path.append('/nfs/home/mmabesoone/SCA/_analysis/')
 sys.path.append('./_sca')
 import KStools
 from pysca import sca
-
+matplotlib.use('Agg')
 
 def newFolder(folderName):
     if not os.path.isdir(folderName):
@@ -246,7 +249,7 @@ def calculate_eigenmode_residues(ICA_vectors, no_eigenmodes, Dsect,
         plt.plot(x_dist, Dsect['scaled_pd'][mode], color=[0.03, 0.05, 0.5],
                  linewidth=2)
         plt.plot([Dsect['cutoff'][mode], Dsect['cutoff'][mode]], [0, 60],
-                 'k--', linewidth=1, color=color)
+                 '--', linewidth=1, color=color)
         plt.xlabel(r'$V^p_{%i}$' % (mode+1), fontsize=14)
         plt.ylabel('Number', fontsize=14)
     plt.tight_layout()
@@ -478,7 +481,7 @@ def writePymol(pdb, sectors, outfilename, color, offset, chain="A", quit=1):
     **Example**::
 
       writePymol(pdb, sectors, ics, ats, outfilename, chain='A',inpath=settings.path2structures, quit=1)
-  
+
     """
 
     f = open(outfilename, "w")
@@ -493,7 +496,7 @@ def writePymol(pdb, sectors, outfilename, color, offset, chain="A", quit=1):
     # PyMol is 1-indexed
     for sector in sectors:
         f.write("create sector" + str(sector) + ", (resi %s) \n"
-                % tuple([", resi ".join([str(pos+1-offset) 
+                % tuple([", resi ".join([str(pos+1-offset)
                                          for pos in sectors[sector]
                                          if pos >= offset])]))
     # f.write("color color1, sector1\n")
@@ -516,7 +519,7 @@ def writePymol(pdb, sectors, outfilename, color, offset, chain="A", quit=1):
     if quit == 1:
         f.write("quit")
     f.close()
-    
+
 
 def map_to_original_sequence(motif, motif_folder, Dseq, model):
     # Map the SCA ats mapping back onto the original, prefiltered sequence and
@@ -526,7 +529,7 @@ def map_to_original_sequence(motif, motif_folder, Dseq, model):
 
     MSA_file = [i for i in os.listdir(os.path.join(motif_folder,
                                                    '0_InputData'))
-                if 'MSA_' + motif + '.o' in i][0]
+                if motif + '.o123' in i][0]
     headers_full, sequences_full = sca.readAlg(motif_folder +
                                                '/0_InputData/' + MSA_file)
 
@@ -567,14 +570,15 @@ def map_to_original_sequence(motif, motif_folder, Dseq, model):
                 break
             fil_in_orig += 1
 
-    return [full_seq, orig_to_filt, filt_to_orig]   
+    return [full_seq, orig_to_filt, filt_to_orig]
 
 
 def map_to_original_msa(motif, motif_folder, Dseq):
     # Map the SCA ats to the original sequence alignment
     MSA_files = [i for i in os.listdir(os.path.join(motif_folder,
                                                    '0_InputData'))
-                if 'MSA_' + motif + '.o' in i]
+                if '.o123' in i]
+    print(MSA_files)
     filesize = 0
     for file in MSA_files:
         if os.stat(os.path.join(motif_folder, '0_InputData', file)).st_size > filesize:
@@ -633,10 +637,10 @@ def map_to_original_msa(motif, motif_folder, Dseq):
     return sca_to_msa, msa_to_sca
 
 
-def map_sectors_to_lost_sequence(sca_to_msa, allignedSectors, 
+def map_sectors_to_lost_sequence(sca_to_msa, allignedSectors,
                                  motif_folder, motif):
     # Create a dictionary that maps the msa position to the position in the
-    # actual original sequence  
+    # actual original sequence
     MSA_file = [i for i in os.listdir(os.path.join(motif_folder,
                                                    '0_InputData'))
                 if 'MSA_' + motif + '.o' in i][0]
@@ -693,7 +697,7 @@ def map_sectors_to_lost_sequence(sca_to_msa, allignedSectors,
 
 def SpyderInput(folder, parse_all=True):
     # Function to perform the SCA analysis in case something went a bit wrong
-    # on Morgan. 
+    # on Morgan.
     # Parse_all switch can be used to only process those domains that do not have
     # the statistics folder yet.
 
@@ -703,7 +707,7 @@ def SpyderInput(folder, parse_all=True):
     motifs = [f for f in os.listdir(folder) if
          any([i in f for i in ['_', 'ACP', 'PCP', 'KR', 'ER', 'Thioesterase',
                                'Condensation', 'AT', 'KS', 'DH']])]
-    motifs = [motif for motif in motifs if not 
+    motifs = [motif for motif in motifs if not
               any(term in motif for term in ['Bacillaene','files','.py'])]
     if not parse_all:
         motifs = [motif for motif in motifs if not os.path.isdir(folder + '/' + motif + '/3b_ReorderedSCAmatrix_avg/')]
@@ -902,7 +906,7 @@ def SpyderInput(folder, parse_all=True):
                     for rank in allignedSectors:
                         print('making file')
                         pos_in_sectors = [i for i in allignedSectors[rank].pos if i!= '-']
-                        sectors[rank] = [filt_to_orig[i] for i in pos_in_sectors 
+                        sectors[rank] = [filt_to_orig[i] for i in pos_in_sectors
                                      if i in filt_to_orig.keys()]
                         writePymol(pdb, sectors, fname, color, offset, 'A', True)
                 except KeyError as e:
@@ -915,22 +919,34 @@ def SpyderInput(folder, parse_all=True):
 
 
 def main():
-    motif = sys.argv[1]
-    input_file = motif + '_sectors.db'
-    sys.path.append(sys.argv[1])
+    parser = argparse.ArgumentParser(description='Script to automatically analyze SCA.')
+    parser.add_argument('-pysca_dir',help='Path to the pysca directory', type=str)
+    parser.add_argument('-motif_dir',help='Path to the motif directory', type=str)
+    args = parser.parse_args()
+
+    sys.stdout.write(f"Looking for _sectors.db files in {args.motif_dir}\n")
+    input_files = [os.path.join(args.motif_dir, file) for file in os.listdir(args.motif_dir) if '_sectors.db' in file]
+    if len(input_files) == 0 and not os.path.isdir(os.path.join(args.motif_dir, '0_InputData')):
+        sys.stdout.write("Found no sector.db files. Exiting.\n")
+        return
+    elif os.path.isdir(os.path.join(args.motif_dir, '0_InputData')):
+        input_files = [os.path.join(args.motif_dir, file) for file in os.listdir(os.path.join(args.motif_dir, '0_InputData')) if '_sectors.db' in file]
+    input_file = input_files[0]
+    motif = os.path.basename(input_file).replace('_sectors.db','')
+    sys.stdout.write(f"Found {input_files}\n")
+    sys.stdout.write(f"Analyzing {input_file}\n")
+    sys.path.append(args.pysca_dir)
     import pysca
 
-    os.chdir('..')
-    os.chdir(motif)
     # Main function to analyse the SCA results
-    motif_folder = os.getcwd()
+    motif_folder = args.motif_dir
     global color
     color = [0.1, 0.6, 0.3]
 
     input_folder = organize_input(input_file, motif_folder)
 
     # Load the results from the SCA core calculations and show some statistics
-    db = pickle.load(open('/'.join([input_folder, input_file]), 'rb'))
+    db = pickle.load(open(os.path.join(input_folder, os.path.basename(input_file)), 'rb'))
     Dseq = db['sequence']  # the results of scaProcessMSA
     Dsca = db['sca']       # the results of scaCore
     Dsect = db['sector']   # the results of scaSectorID
@@ -1038,7 +1054,7 @@ def main():
     # Make the pymol scripts
     models = []
     for i, header in enumerate(Dseq['hd']):
-        if 'oocydin ' in header.lower() or 'bacillaene' in header.lower():
+        if 'oocydin' in header.lower() or 'bacillaene' in header.lower():
             models.append(i)
     if 'cis' in motif_folder:
         for i, header in enumerate(Dseq['hd']):
@@ -1058,17 +1074,10 @@ def main():
             print(e)
             print('-------------')
             continue
-        gene = Dseq['hd'][model].split('|')[1].split(':')[1].strip()
-        if gene == '':
-            gene = motif
-        gene = Dseq['hd'][model].split('|')[0].strip() + '_'  + \
-            gene
-        start = Dseq['hd'][model].split('|')[2].split(':')[1].strip()
-        start = start.split(',')[0][1:]
 
         print('INFO: Making Pymol files of:')
         print('           ' + Dseq['hd'][model])
-        pdb = gene + '_' + start
+        pdb = Dseq['hd'][model].replace('|','_')
         try:
             fID = open(pymol_folder + '/' + pdb + '_seqPos.txt', 'w+')
             fID.write('Pos in seq\tAA\tPosInFilteredSeq\tAA\n')
@@ -1087,7 +1096,7 @@ def main():
             offset = 0
             for rank in allignedSectors:
                 pos_in_sectors = [i for i in allignedSectors[rank].pos if i!= '-']
-                sectors[rank] = [filt_to_orig[i] for i in pos_in_sectors 
+                sectors[rank] = [filt_to_orig[i] for i in pos_in_sectors
                              if i in filt_to_orig.keys()]
                 writePymol(pdb, sectors, fname, color, offset, 'A', True)
         except KeyError as e:

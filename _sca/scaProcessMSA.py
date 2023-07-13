@@ -243,6 +243,7 @@ if __name__ == "__main__":
 
     # Read in initial alignment
     headers_full, sequences_full = sca.readAlg(options.alignment)
+    sequences_original = sequences_full
     print(
         "Loaded alignment of %i sequences, %i positions."
         % (len(headers_full), len(sequences_full[0]))
@@ -359,6 +360,7 @@ if __name__ == "__main__":
                 sequences, ats = sca.makeATS(
                     sequences_full, ats_pdb, seq_pdb, i_ref, options.truncate
                 )
+                first_ats = ats
                 dist_new = np.zeros((len(ats), len(ats)))
                 for (j, pos1) in enumerate(ats):
                     for (k, pos2) in enumerate(ats):
@@ -416,6 +418,7 @@ if __name__ == "__main__":
             )
             sequences = sequences_full
             ats = [i + 1 for i in range(len(sequences[0]))]
+            first_ats = ats
             # POSSIBLE BUG FIX???
             # ats = poskeep #  ADDED BY MATHIJS!!!!!!!
     else:
@@ -433,6 +436,7 @@ if __name__ == "__main__":
             sequences, ats = sca.makeATS(
                 sequences_full, ats_tmp, s_tmp, i_ref, options.truncate
             )
+            first_ats = ats
         except BaseException as e:
             print("Error: " + str(e))
             sys.exit("Error!! Can't find reference sequence...")
@@ -496,6 +500,13 @@ if __name__ == "__main__":
 
     # Calculation of final MSA, sequence weights
     seqw = sca.seqWeights(alg)
+    
+    # Filter out the hybrid sequence by setting its weight to 0
+    for i, weight in enumerate(seqw[0]):    
+        if 'hybrid' in hd[i].lower():
+            seqw[0][i] = 0
+            print(f"Setting weight for hybrid {hd[i]} from {seqw[0][i]} to 0.")
+
     effseqs = seqw.sum()
     msa_num = sca.lett2num(alg)
     Nseq, Npos = msa_num.shape
@@ -528,6 +539,15 @@ if __name__ == "__main__":
         f.write(alg[i] + "\n")
     f.close()
 
+    original_to_poskeep = {i:-1 for i, lett in enumerate(sequences_original[0])}
+    for i, pos in enumerate(poskeep):
+        original_to_poskeep[pos] = i
+    poskeep_to_iposkeep = {i:-1 for i, pos in enumerate(poskeep)}
+    for i, pos in enumerate(iposkeep):
+        poskeep_to_iposkeep[pos] = i
+    original_to_iposkeep = {i:poskeep_to_iposkeep[original_to_poskeep[i]] for i, lett in enumerate(sequences_original[0]) if original_to_poskeep[i] != -1}
+    iposkeep_to_original = {original_to_iposkeep[i]:i for i in original_to_iposkeep if original_to_iposkeep[i] != -1}
+
     D = {}
     D["alg"] = alg
     D["hd"] = hd
@@ -536,6 +556,8 @@ if __name__ == "__main__":
     D["Nseq"] = Nseq
     D["Npos"] = Npos
     D["ats"] = ats
+    D["alg_to_original"] = iposkeep_to_original
+    D["original_to_alg"] = original_to_iposkeep
     D["effseqs"] = effseqs
     D["limitseqs"] = options.Nselect
     D["NseqPrelimit"] = Nseqprelimit

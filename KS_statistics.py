@@ -22,6 +22,8 @@ def count_motif_in_domain_sequence(domain_sequences, motifs):
                     i = 0
                 if motif[i] == domain:
                     i += 1
+                elif motif[i].lower() == 'binding' and domain in ['PP-binding', 'ACP', 'ACP_beta', 'AMP_binding', 'PCP', 'PKS_PP']:
+                    i += 1
                 else:
                     i = 0
         motif_hits.append(hits)
@@ -32,6 +34,8 @@ def extract_domain_sequence(grouped_asdomains):
     domain_sequence = list()
     for cds in grouped_asdomains:
         cds_sequence = list()
+        if cds.location.strand == -1:
+            grouped_asdomains[cds] = grouped_asdomains[cds][::-1]
         for asdomain in grouped_asdomains[cds]:
             cds_sequence.append(asdomain.qualifiers['aSDomain'][0])
         if cds_sequence != []:
@@ -75,9 +79,11 @@ def map_inhouse_to_aSdb(inhouse_file, aSdb_files):
 
 def main(export=False):
     pool = mp.Pool(33)
-    folder = 'Z:\Scripts\_antiSMASH_genbanks'
-    folder = 'Z:\Scripts\S-004_GenBankDownloader\GenBanks_cisAT_KS_type1'
-    files = [os.path.join(folder, file) for file in os.listdir(folder) if '.gb' in file][0:200]
+    folder = r'Z:\Scripts\_antiSMASH_genbanks'
+    #folder = 'Z:\Scripts\S-004_GenBankDownloader\GenBanks_cisAT_KS_type1'
+    files = [os.path.join(folder, file) for file in os.listdir(folder) if '.gb' in file]
+    folder = r'Q:\GenBank_files\antiSMASH_gb_redacted'
+    files.extend([os.path.join(folder, file) for file in os.listdir(folder) if '.gb' in file])
 
     inhouse_files = [file for file in files if 'region' not in file]
     aSdb_files = [file for file in files if file not in inhouse_files]
@@ -90,8 +96,12 @@ def main(export=False):
             fID.write(inhouse_file + '\t' + '\t'.join(mapping_to_aSdb[inhouse_file]))
     fID.close()
     files = aSdb_files
-    motifs = [['PKS_KS'], ['PKS_KS', 'Trans-AT_docking'], ['PKS_KS', 'Trans-AT_docking', 'PKS_KR'], ['PP-binding', 'PKS_KS'], ['PKS_KR','PP-binding', 'PKS_KS']]
-    motifs = [['ACP','PKS_KS', 'PKS_AT', 'ACP']]
+    motifs = [['PKS_KS'], ['PKS_KS', 'Trans-AT_docking'], ['PKS_KS', 'Trans-AT_docking', 'PKS_KR'],
+              ['PP-binding', 'PKS_KS'], ['PKS_KR', 'binding', 'PKS_KS'],
+              ['PKS_KS', 'Trans-AT_docking', 'PKS_DH2'], ['PKS_KS', 'Trans-AT_docking', 'MT'],
+              ['PKS_KS', 'Trans-AT_docking', 'binding', 'PKS_KS'],
+              ['binding', 'PKS_KS', 'Trans-AT_docking']]
+    #motifs = [['ACP','PKS_KS', 'PKS_AT', 'ACP']]
     hits = dict()
     for file in files:
         domain_sequences = extract_domain_sequence(obtain_asdomains(file))
