@@ -148,7 +148,11 @@ def extract_domain_sequences(motif, genbank_folder, destination_folder, leading=
     AA_fasta = open(Path(destination_folder).joinpath('_'.join(motif)+'_AA.fasta'), 'wt')
     hits = 0
     for file in files:
-        seqRecord = SeqIO.read(file, 'genbank')
+        try:
+            seqRecord = SeqIO.read(file, 'genbank')
+        except ValueError:
+            print(f'Error reading {file.name}')
+            continue
         domain_hits = extract_motif_from_gb(seqRecord, motif, leading, trailing, intermediate, any_binding)
         hits += len(domain_hits)
         AA_sequences = convert_domain_hits_to_sequences(domain_hits, file)
@@ -156,4 +160,3 @@ def extract_domain_sequences(motif, genbank_folder, destination_folder, leading=
     AA_fasta.close()
     
     return [hits]
-        
