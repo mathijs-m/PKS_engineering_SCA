@@ -18,6 +18,9 @@ For the multiple sequence alignments:
 - [MAFFT](https://mafft.cbrc.jp/alignment/software/)
 - [MUSCLE](https://www.drive5.com/muscle/)
 
+In our experience, the SCA on sequence alignments of multidomain sequences require > 30 GB of RAM. Hence the pipeline is designed to run on a cluster with a high amount of RAM. The pipeline script is designed to work with  SLURM-based job schedulers.
+
+
 ## Commands
 The main script `SCA_pipeline.py` can be run with the following command line arguments:
 - `-h` or `--help`: Show the help message and exit.
@@ -31,10 +34,10 @@ The main script `SCA_pipeline.py` can be run with the following command line arg
 - `-maxSequenceID`: Maximum sequence identity to be included in the SCA. Default=0.8
 - `-maxGapsFrequency`: Maximum frequency of gaps at positions in the MSA. Default=0.2
 - `-minGapsFrequency`: Maximum frequency of gaps at positions in the MSA. Default=0.2
-- `-extract`: Switch to turn on or off extraction from the database. 
-- `-any_binding`: Any_binding option of the GenbankExtractor. This treats PCP
+- `-extract`: Switch to turn on or off extraction from the database. Only perform SCA and processing of the SCA results. This requires the sequences to be extracted by a prior run.
+- `-any_binding`: Any_binding option of the GenbankExtractor. This treats PCP, ACP and PP-binding domains as similar.
 - `-only_analyse`: Switches off sequence extraction, alignment and SCA calculation. Only performs analysis of SCA results.
-- `-hybrid_sequence`: Path to fasta file with the sequence of the artificial hybrid.
+- `-hybrid_sequence`: Path to fasta file with the sequence of the artificial hybrid. This option ensures inclusion of a custom sequence that contains the query domain motif with a sequence weight of 1.0. This option is not used in the paper.
 
 ## Usage:
 1. Clone the repository to a cluster running on Linux.
